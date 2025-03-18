@@ -1,7 +1,7 @@
 # ACES Workflow Orchestrator
 ### Installation Process
 1. `Minio Operator & Minio Tenant with Kustomize`
-   - need to install kustomize (check homebrew installation)
+   - need to install kustomize ([see](https://kubectl.docs.kubernetes.io/installation/kustomize/))
    - cd /mlfo/minio
    - kubectl apply -f pv.yaml
    - kustomize build infra | kubectl apply -f -
