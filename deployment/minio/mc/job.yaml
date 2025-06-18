@@ -1,0 +1,26 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mc-init
+  namespace: minio-operator
+spec:
+  template:
+    spec:
+      containers:
+      - name: mc
+        image: minio/mc
+        command:
+        - /bin/sh
+        - -c
+        - |
+          until nc -z -v -w30 minio 80
+          do
+            echo "Waiting for MinIO..."
+            sleep 5
+          done
+          echo "MinIO is up. Proceeding..."
+          /usr/bin/mc alias set horse http://minio admin martel2024 &&
+          /usr/bin/mc mb horse/prefect &&
+          /usr/bin/mc anonymous set public horse/prefect
+      restartPolicy: Never
+  backoffLimit: 4
