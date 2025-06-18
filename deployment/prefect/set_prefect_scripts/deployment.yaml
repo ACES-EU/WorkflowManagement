@@ -1,24 +1,20 @@
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: batch/v1
+kind: Job
 metadata:
   labels:
     app: set-prefect-scripts
   name: set-prefect-scripts
-  namespace: default
 spec:
-  replicas: 1
   selector:
     matchLabels:
       app: set-prefect-scripts
-  strategy: {}
   template:
     metadata:
-      creationTimestamp: null
       labels:
         io.kompose.network/mc-default: "true"
         app: set-prefect-scripts
     spec:
+      restartPolicy: Never
       containers:
         - name: set-prefect-scripts
-          image: pkapsalismartel/set_prefect_scripts:v0.9
-status: {}
+          image: ghcr.io/aces-eu/workflowmanagement/set-prefect-scripts:v0.9
