@@ -1,0 +1,5 @@
+s3fs
+minio
+boto3
+prefect
+openpyxl
