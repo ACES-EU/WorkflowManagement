@@ -91,12 +91,26 @@ cd deployment/prefect/set_prefect_scripts
 kubectl apply -f deployment.yaml
 ```
 
-### Install Prefect Agent
+### Install Prefect Worker
+
+NB! From v2.x onwards, the `agent` is replaced by `worker`. See
+[docs](https://docs.prefect.io/v3/concepts/work-pools).
 
 From `deployment/prefect`, run
 
 ```shell
-helm install prefect-agent --namespace prefect prefect/prefect-agent -f values.yaml
+helm install prefect-worker --namespace prefect prefect/prefect-worker \
+  --namespace=prefect -f worker-values.yaml
+```
+
+Validate the the worker is running
+
+```shell
+$ kubectl -n prefect get pods
+NAME                              READY   STATUS    RESTARTS        AGE
+prefect-server-6b7b745577-7z2w4   1/1     Running   0               2d12h
+prefect-server-postgresql-0       1/1     Running   0               2d12h
+prefect-worker-5988b7c458-nwx9z   1/1     Running   0               22s
 ```
 
 ## Deploy IPTO flows in ACES Workflow Orchestrator
