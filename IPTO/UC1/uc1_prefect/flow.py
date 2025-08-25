@@ -1,9 +1,9 @@
 import numpy as np
+from prefect import flow, task
 
-from prefect import flow, get_run_logger, task
-
-from load_sensitivity import init_dfs, empty_network, init_buses, init_transformers, make_lines, load_max, \
-    make_generators, make_shunts, simulate, make_figures
+from load_sensitivity import init_dfs, empty_network, init_buses, \
+    init_transformers, make_lines, load_max, make_generators, make_shunts, \
+    simulate, make_figures
 
 
 @task
@@ -177,3 +177,25 @@ def uc1_load_sens():
                 dfmaxat, dfbus
             )
             create_figures(df, dfminat, dfmaxat, dfbus)
+
+
+if __name__ == "__main__":
+    from pathlib import Path
+    
+    # Use from_source to include the entire directory containing both files
+    uc1_load_sens.from_source(
+        source=str(Path(__file__).parent),  # Current directory containing both flow.py and load_sensitivity.py
+        entrypoint="flow.py:uc1_load_sens"
+    ).deploy(
+        name="uc1-load-sensitivity-analysis",
+        description="A Prefect flow for UC1 Load Sensitivity Analysis",
+        work_pool_name="aces",
+        image="prefecthq/prefect:3.4.6-python3.12",
+        build=False,
+        tags=["uc1", "load-sensitivity", "analysis"],
+        job_variables={
+            "env": {
+                "EXTRA_PIP_PACKAGES": "s3fs requests pandas minio seaborn matplotlib boto3 pandapower openpyxl"
+            }
+        }
+    )

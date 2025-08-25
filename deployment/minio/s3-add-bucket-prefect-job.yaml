@@ -1,0 +1,27 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mc-init
+  namespace: aces-minio-tenant
+spec:
+  template:
+    spec:
+      containers:
+      - name: mc
+        image: minio/mc
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo "Waiting for MinIO to be ready..."
+          until /usr/bin/mc alias set aces https://minio.aces-minio-tenant.svc.cluster.local admin martel2024 2>/dev/null
+          do
+            echo "MinIO not ready yet, waiting..."
+            sleep 5
+          done
+          echo "MinIO is up. Proceeding with bucket setup..."
+          # Create bucket if missing and set it public
+          /usr/bin/mc mb --ignore-existing aces/prefect &&
+          /usr/bin/mc anonymous set public aces/prefect
+      restartPolicy: Never
+  backoffLimit: 4

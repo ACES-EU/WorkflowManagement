@@ -1,78 +1,109 @@
-# ACES Workflow Orchestrator
+# ACES Workflow Management
+
+The diagram below illustrates the architecture of the ACES Workflow Management
+system which is based on the Prefect framework.
+
+![ACES Workflow Management Architecture](ACES-WorkflowMgmt-Prefect.png)
 
 ## Installation
 
 ### Prerequisites
 
-- Kubernetes cluster
-- `kubectl` configured to access the cluster
-- `helm` installed and configured to access the cluster
+- Cloud and Edge Kubernetes clusters
+- `kubectl` configured to access the clusters
+- `helm` installed and configured to access the clusters
 
-### MinIO Operator & Minio Tenant with Kustomize
+### Deploy MinIO Operator & MinIO Tenant on Cloud and Edge Clusters
 
-Install kustomize ([see](https://kubectl.docs.kubernetes.io/installation/kustomize/)).
+The MinIO will be used on the cloud cluster to store:
+
+* input and output data of Prefect flows.
+
+The MinIO will be used on the edge cluster to store:
+
+* intermediate results of Prefect flow tasks.
+
+NB! MinIO credentials are set to `admin/martel2024`.
 
 ```shell
 cd deployment/minio
 ```
 
-PV folder needs the right permissions. `1000` is the user ID
-that minio runs as.  `pvs/aces-tenant` folder is part of this project.
+Configure `KUBECONFIG` to point to your cloud or edge clusters accordingly and
+then run the automated deployment script that handles everything:
 
 ```shell
-chown -R 1000:1000 /path/to/pvs/aces-tenant
-chmod -R 755  /path/to/pvs/aces-tenant
+./deploy-minio.sh
 ```
 
-```shell
-kubectl apply -f pv.yaml
-```
-
-We need to wait for the CRDs to be ready. Hence the two-phase approach:
-
-Phase 1 - Apply operator and CRDs only:
-
-```shell
-kubectl apply -f infra/operator.yaml
-# Wait for CRDs to be ready
-kubectl wait --for condition=established --timeout=60s crd/tenants.minio.min.io
-```
-
-Phase 2 - Apply the tenant:
-
-```shell
- kubectl apply -f infra/aces-tenant.yaml
-```
+Follow the instructions at the end of the script to complete the deployment.
 
 Use `mc` to create the `prefect` bucket and set it to public.
 
 ```shell
-cd mc/
-kubectl apply -f job.yaml
+kubectl apply -f s3-add-bucket-prefect-job.yaml
 ```
 
-MinIO credentials are set to `admin/martel2024`.
+Alternatively, you can use Nuvla to deploy MinIO for Prefect with local path
+storage. Deploy the applications in the following order.
 
-### Deploy Prefect Server
+1. Local Path Storage: https://nuvla.io/ui/apps/aces/edge-cloud-infrastructure/workflow-management/minio-for-prefect/local-path-storage
+2. MinIO Operator: https://nuvla.io/ui/apps/aces/edge-cloud-infrastructure/workflow-management/minio-for-prefect/minio-operator
+3. MinIO Tenant: https://nuvla.io/ui/apps/aces/edge-cloud-infrastructure/workflow-management/minio-for-prefect/minio-tenant
+4. Add the `aces` bucket to the MinIO tenant: https://nuvla.io/ui/apps/aces/edge-cloud-infrastructure/workflow-management/minio-for-prefect/aces-bucket-in-minio/
 
-This deploys Prefect server and PostgreSQL.
+If you need to cleanup after terminating the deployment, you can delete the
+MinIO related resources using:
 
 ```shell
-cd deployment/prefect
+kubectl delete crd tenants.minio.min.io policybindings.sts.min.io --ignore-not-found 
+kubectl delete clusterrole minio-operator-role --ignore-not-found
+kubectl delete clusterrolebinding minio-operator-role-binding --ignore-not-found
+kubectl delete clusterrolebinding minio-operator-binding --ignore-not-found
+```
+
+### Deploy Prefect Server on Cloud or on-premises
+
+The following explains how to deploy Prefect Server with PostgreSQL.
+
+Deploy using Nuvla:
+
+https://nuvla.io/ui/apps/aces/edge-cloud-infrastructure/workflow-management/prefect
+
+Alternatively, deploy using CLI script:
+
+```shell
+cd deployment/prefect/server
 ./deploy-prefect-server.sh
 ```
 
-Forward the port to access the Prefect from outside the cluster.
+Validate the the server is running
+
+```shell
+$ kubectl -n prefect get pods
+NAME                              READY   STATUS    RESTARTS        AGE
+prefect-server-6b7b745577-7z2w4   1/1     Running   0               2d12h
+prefect-server-postgresql-0       1/1     Running   0               2d12h
+```
+
+For accessing Prefect UI and API from outside the cluster, you can use
+port-forwarding.
 
 ```shell
 kubectl -n prefect port-forward svc/prefect-server 4200:4200 --address=0.0.0.0
 ```
 
-To validate Prefect is avialable, run
+To validate Prefect is available, run
 
 ```shell
 export PREFECT_API_URL="http://<hostname|IP>:4200/api"
 prefect version
+```
+
+You can also test the connection with:
+
+```shell
+prefect config view
 ```
 
 To access UI create a tunnel to the Prefect server. From your local machine, run
@@ -84,40 +115,133 @@ ssh -L 4200:localhost:4200 root@<hostname|IP> -N
 
 Then, from your local machine, access the Prefect UI at `http://localhost:4200`.
 
-### Set up Prefect Block K8SJob and Workpool
+### Set up Prefect Block K8SJob and Work Pool
+
+The following approach to data management for Prefect flows was taken:
+
+* Cloud S3 (“minio-data”, “minio-results”) holds inputs/outputs. Edge
+flows pull inputs from Cloud S3 and push final results back. This centralizes
+artifacts and simplifies discovery and governance.
+
+* Edge‑local S3 for intermediate/ephemeral artifacts and parameter exchange
+reduces egress, latency, and avoids pushing large intermediates to the cloud
+unnecessarily.
+
+See the conceptual diagram above with *S3 public* and *S3 local* storage respectively.
+
+Follow the instructions in this [README.md](deployment/prefect/config-pools-storage/README.md).
+
+
+### Deploy Prefect Worker
+
+The Prefect Worker is intended to be deployed on K8s clusters on edge devices.
+It, then connects to the Prefect Server to a predefined pool and listens to the
+actions to execute.
+
+Deploy Prefect Worker on the edge devices using Nuvla:
+
+https://nuvla.io/ui/apps/aces/edge-cloud-infrastructure/workflow-management/prefect-worker
+
+### Test
+
+This will:
+
+* Register the deployment to the `aces` pool
+* Create it under the name `hello-deployment`
+* Use the flow defined in `hello_flow.py:hello`
+
+Make sure your Prefect server is configured and reachable by running
 
 ```shell
-cd deployment/prefect/set_prefect_scripts
-kubectl apply -f deployment.yaml
+$ prefect config view
+🚀 you are connected to:
+http://localhost:4200
+PREFECT_PROFILE='ephemeral'
+PREFECT_API_URL='http://localhost:4200/api' (from env)
+PREFECT_SERVER_ALLOW_EPHEMERAL_MODE='true' (from profile)
+$
 ```
 
-### Install Prefect Worker
-
-NB! From v2.x onwards, the `agent` is replaced by `worker`. See
-[docs](https://docs.prefect.io/v3/concepts/work-pools).
-
-From `deployment/prefect`, run
-
 ```shell
-helm install prefect-worker --namespace prefect prefect/prefect-worker \
-  --namespace=prefect -f worker-values.yaml
+cd tests
+python hello_flow.py
 ```
 
-Validate the the worker is running
+List the deployments
 
 ```shell
-$ kubectl -n prefect get pods
-NAME                              READY   STATUS    RESTARTS        AGE
-prefect-server-6b7b745577-7z2w4   1/1     Running   0               2d12h
-prefect-server-postgresql-0       1/1     Running   0               2d12h
-prefect-worker-5988b7c458-nwx9z   1/1     Running   0               22s
+prefect deployment ls
+```
+
+And trigger a run:
+
+```shell
+prefect deployment run hello/hello-deploy
 ```
 
 ## Deploy IPTO flows in ACES Workflow Orchestrator
 
 ### UC1 - Load Sensitivity Analysis
 
+Deploy the UC1 Load Sensitivity Analysis flow with MinIO integration:
+
 ```shell
-prefect deployment build uc1_prefect/flow.py:uc1_load_sens -n 'uc1_load_sens' -ib kubernetes-job/prod -sb 'remote-file-system/minio' --pool aces
-prefect deployment apply uc1_load_sens-deployment.yaml
+cd IPTO/UC1/uc1_prefect
+python flow_with_minio.py  # Deploy the flow
+```
+
+This will create a deployment named `uc1-load-sensitivity-minio` that:
+
+- Loads input data from MinIO (if any)
+- Runs the load sensitivity analysis 
+- Saves all output files (Excel, PNG plots) to MinIO storage
+- Stores intermediate results in MinIO
+
+Run the deployment:
+
+```shell
+prefect deployment run uc1-load-sensitivity-analysis/uc1-load-sensitivity-minio
+```
+
+### User Workload Deployment Guide
+
+For users deploying their own workloads, see the comprehensive [MinIO Integration Guide](MINIO_INTEGRATION_GUIDE.md) which covers:
+
+- How to configure flows to use MinIO for input/output files
+- Different deployment methods (local code vs. MinIO-stored code)
+- Best practices for file organization
+- Example code for common patterns
+- Troubleshooting guide
+
+#### Quick Example for User Workloads
+
+```python
+from prefect import flow, task
+from prefect_aws import S3Bucket
+
+@task
+def load_data(input_path: str):
+    storage = S3Bucket.load("minio-data-storage")
+    local_path = storage.download_object_to_path(input_path, "temp_input.csv")
+    # Process your data
+    local_path.unlink()  # Clean up
+
+@task  
+def save_results(data, output_path: str):
+    storage = S3Bucket.load("minio-data-storage")
+    # Save data locally first, then upload
+    storage.upload_from_path("local_file.csv", output_path)
+
+@flow(result_storage="s3-bucket/minio-result-storage")
+def my_workload():
+    data = load_data("input/my_data.csv")
+    # Your processing...
+    save_results(data, "output/my_results.csv")
+
+if __name__ == "__main__":
+    my_workload.deploy(
+        name="my-workload",
+        work_pool_name="aces",
+        job_variables={"env": {"EXTRA_PIP_PACKAGES": "prefect-aws s3fs pandas"}}
+    )
 ```
