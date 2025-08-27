@@ -16,7 +16,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from prefect_aws import S3Bucket, AwsCredentials
+from prefect_aws import S3Bucket, AwsCredentials, AwsClientParameters
 
 
 # Configure Prefect API URL from environment or use default
@@ -34,17 +34,23 @@ EDGE_MINIO_HOST = 'minio.minio-operator.svc.cluster.local'
 EDGE_MINIO_PORT = 80
 EDGE_MINIO_ENDPOINT = f"https://{EDGE_MINIO_HOST}:{EDGE_MINIO_PORT}"
 
-def create_aws_credentials():
-    """Create AWS credentials block for MinIO"""
-    print("Creating AWS credentials for MinIO...")
+def create_aws_credentials_cloud():
+    """Create AWS credentials block for MinIO on Cloud"""
+    print("Creating AWS credentials for MinIO on Cloud...")
     try:
+        client_params = AwsClientParameters(
+            endpoint_url=CLOUD_MINIO_ENDPOINT,
+            use_ssl=CLOUD_MINIO_ENDPOINT.startswith("https://"),
+            verify=False,
+        )
         credentials = AwsCredentials(
             aws_access_key_id=MINIO_KEY,
             aws_secret_access_key=MINIO_SECRET,
-            region_name="us-east-1"  # Required by AWS SDK
+            region_name="us-east-1",  # Required by AWS SDK
+            aws_client_parameters=client_params,
         )
-        credentials.save("minio-credentials", overwrite=True)
-        print("AWS credentials block created successfully")
+        credentials.save("minio-credentials-cloud", overwrite=True)
+        print("AWS credentials block for MinIO on Cloud created successfully")
         return credentials
     except Exception as e:
         print(f"Failed to create AWS credentials block: {e}")
@@ -53,21 +59,42 @@ def create_aws_credentials():
         print("2. Network connectivity is available")
         raise
 
-def create_storage_blocks(cloud_minio_endpoint, edge_minio_endpoint):
+def create_aws_credentials_edge():
+    """Create AWS credentials block for MinIO on Edge"""
+    print("Creating AWS credentials for MinIO on Edge...")
+    try:
+        client_params = AwsClientParameters(
+            endpoint_url=EDGE_MINIO_ENDPOINT,
+            use_ssl=EDGE_MINIO_ENDPOINT.startswith("https://"),
+            verify=False,
+        )
+        credentials = AwsCredentials(
+            aws_access_key_id=MINIO_KEY,
+            aws_secret_access_key=MINIO_SECRET,
+            region_name="us-east-1",  # Required by AWS SDK
+            aws_client_parameters=client_params,
+        )
+        credentials.save("minio-credentials-edge", overwrite=True)
+        print("AWS credentials block for MinIO on Edge created successfully")
+        return credentials
+    except Exception as e:
+        print(f"Failed to create AWS credentials block: {e}")
+        print("Please ensure:")
+        print(f"1. Prefect server is running at {PREFECT_API_URL}")
+        print("2. Network connectivity is available")
+        raise
+
+def create_storage_blocks():
     """Create storage blocks for different purposes"""
-    credentials = create_aws_credentials()
-    
+    credentials_cloud = create_aws_credentials_cloud()
+    credentials_edge = create_aws_credentials_edge()
+
     # 1. Flow code storage (replaces deployment configs in /param)
     print("Creating flow storage block...")
     flow_storage = S3Bucket(
         bucket_name=MINIO_PREFECT_BUCKET,
         folder="flows",
-        credentials=credentials,
-        client_kwargs={
-            "endpoint_url": cloud_minio_endpoint,
-            "use_ssl": False,
-            "verify": False
-        }
+        credentials=credentials_cloud,
     )
     flow_storage.save("saas-flows", overwrite=True)
     print("Flow storage block created: s3://prefect/flows/")
@@ -77,12 +104,7 @@ def create_storage_blocks(cloud_minio_endpoint, edge_minio_endpoint):
     data_storage = S3Bucket(
         bucket_name=MINIO_PREFECT_BUCKET,
         folder="data",
-        credentials=credentials,
-        client_kwargs={
-            "endpoint_url": cloud_minio_endpoint,
-            "use_ssl": False,
-            "verify": False
-        }
+        credentials=credentials_cloud,
     )
     data_storage.save("saas-data", overwrite=True)
     print("Data storage block created: s3://prefect/data/")
@@ -92,12 +114,7 @@ def create_storage_blocks(cloud_minio_endpoint, edge_minio_endpoint):
     results_storage = S3Bucket(
         bucket_name=MINIO_PREFECT_BUCKET,
         folder="results",
-        credentials=credentials,
-        client_kwargs={
-            "endpoint_url": cloud_minio_endpoint,
-            "use_ssl": False,
-            "verify": False
-        }
+        credentials=credentials_cloud,
     )
     results_storage.save("saas-results", overwrite=True)
     print("Results storage block created: s3://prefect/results/")
@@ -107,12 +124,7 @@ def create_storage_blocks(cloud_minio_endpoint, edge_minio_endpoint):
     cache_storage = S3Bucket(
         bucket_name=MINIO_PREFECT_BUCKET,
         folder="cache",
-        credentials=credentials,
-        client_kwargs={
-            "endpoint_url": edge_minio_endpoint,
-            "use_ssl": False,
-            "verify": False
-        }
+        credentials=credentials_edge,
     )
     cache_storage.save("edge-cache", overwrite=True)
     print("Cache storage block created: s3://prefect/cache/")
@@ -257,7 +269,7 @@ def main():
     try:
         # Step 1: Create all storage blocks
         print("Step 1: Creating MinIO storage blocks...")
-        create_storage_blocks(CLOUD_MINIO_ENDPOINT, EDGE_MINIO_ENDPOINT)
+        create_storage_blocks()
         
         # Step 2: Configure work pool storage  
         configure_work_pool_storage()

@@ -142,6 +142,10 @@ Deploy Prefect Worker on the edge devices using Nuvla:
 
 https://nuvla.io/ui/apps/aces/edge-cloud-infrastructure/workflow-management/prefect-worker
 
+After that deploy the K8s ServiceAccount to be able to deploy K8s flows:
+
+https://nuvla.io/ui/apps/aces/edge-cloud-infrastructure/workflow-management/prefect-worker-serviceaccount
+
 ### Test
 
 This will:
