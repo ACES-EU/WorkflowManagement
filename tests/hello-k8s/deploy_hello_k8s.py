@@ -34,6 +34,5 @@ if __name__ == "__main__":
         entrypoint="hello-k8s/hello_k8s.py:hello",
     ).deploy(
         name="hello-k8s-s3",
-        work_pool_name="aces",
-        # No image/env here; rely on Work Pool base job template
+        work_pool_name="aces"
     )

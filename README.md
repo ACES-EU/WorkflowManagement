@@ -236,7 +236,7 @@ def save_results(data, output_path: str):
     # Save data locally first, then upload
     storage.upload_from_path("local_file.csv", output_path)
 
-@flow(result_storage="s3-bucket/minio-result-storage")
+@flow(result_storage="prefect/minio-result-storage")
 def my_workload():
     data = load_data("input/my_data.csv")
     # Your processing...
