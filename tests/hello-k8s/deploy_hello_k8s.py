@@ -1,11 +1,10 @@
 """Deploy hello flow to Kubernetes pool using Prefect S3/MinIO storage block.
 
-This script relies entirely on your Prefect Blocks and Work Pool defaults.
+This script relies entirely on Prefect Blocks and Work Pool defaults.
 It does not hardcode any S3 endpoint or image; the S3 endpoint, credentials,
-and other settings are taken from the storage block (e.g., 'minio-flows').
+and other settings are taken from the storage block (e.g., 'saas-flows').
 """
 
-import os
 from pathlib import Path
 from prefect_aws import S3Bucket
 from hello_k8s import hello
@@ -24,9 +23,9 @@ if __name__ == "__main__":
         raise ex
 
     # Upload the flow file to a subfolder
-    local = Path(__file__).parent / "hello_k8s.py"
+    local = str(Path(__file__).parent / "hello_k8s.py")
     remote = "hello-k8s/hello_k8s.py"  # relative to the 'flows' folder
-    s3.upload_from_path(from_path=str(local), to_path=remote)
+    s3.upload_from_path(from_path=local, to_path=remote)
 
     # Deploy the flow so workers pull code from S3
     hello.from_source(

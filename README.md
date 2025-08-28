@@ -146,13 +146,19 @@ After that deploy the K8s ServiceAccount to be able to deploy K8s flows:
 
 https://nuvla.io/ui/apps/aces/edge-cloud-infrastructure/workflow-management/prefect-worker-serviceaccount
 
-### Test
+## Tests
+
+Run the following tests to validate the deployment and configuration of the
+Prefect and S3 storages.
+
+### Simple Flow
 
 This will:
 
-* Register the deployment to the `aces` pool
-* Create it under the name `hello-deployment`
-* Use the flow defined in `hello_flow.py:hello`
+- Register the deployment to the `aces` pool
+- Create it under the name `hello-k8s-s3`
+- Use the flow defined in `hello_k8s.py:hello`
+- The code will be uploaded to Cloud S3 and taken from there by worker
 
 Make sure your Prefect server is configured and reachable by running
 
@@ -167,8 +173,8 @@ $
 ```
 
 ```shell
-cd tests
-python hello_flow.py
+cd tests/hello-k8s
+python deploy_hello_k8s.py
 ```
 
 List the deployments
@@ -180,7 +186,13 @@ prefect deployment ls
 And trigger a run:
 
 ```shell
-prefect deployment run hello/hello-deploy
+prefect deployment run 'hello/hello-k8s-s3'
+```
+
+To check the runs of the flow, use:
+
+```shell
+prefect flow-run ls
 ```
 
 ## Deploy IPTO flows in ACES Workflow Orchestrator
