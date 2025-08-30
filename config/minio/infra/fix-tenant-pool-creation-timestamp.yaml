@@ -1,2 +1,0 @@
-- op: remove
-  path: /spec/pools/0/volumeClaimTemplate/metadata/creationTimestamp

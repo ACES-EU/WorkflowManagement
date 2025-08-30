@@ -1,0 +1,65 @@
+# MinIO Tenant Helm Values for ACES Workflow Management
+# This file provides a customizable configuration for the MinIO tenant
+
+tenant:
+  name: aces-tenant
+ 
+  # Configuration Secret
+  configSecret:
+    name: aces-tenant-secret
+    accessKey: admin
+    secretKey: martel2024
+    
+  # Pool configuration
+  pools:
+    - servers: 1
+      name: pool-0
+      volumesPerServer: 1
+      size: 1Gi
+      storageClassName: local-path
+      # Enable automatic volume provisioning
+      volumeClaimTemplate:
+        metadata:
+          name: data
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 1Gi
+          storageClassName: local-path
+      
+      # Security context for proper file permissions
+      securityContext:
+        runAsUser: 0
+        runAsGroup: 0
+        runAsNonRoot: false
+        fsGroup: 0
+
+  # Service configuration
+  service:
+    type: ClusterIP
+    
+  # Console service
+  console:
+    enabled: true
+    service:
+      type: ClusterIP
+
+  # Environment variables
+  env:
+    - name: MINIO_BROWSER_REDIRECT_URL
+      value: "http://localhost:9001"
+    - name: MINIO_SERVER_URL
+      value: "http://localhost:9000"
+
+# Ingress configuration (optional)
+ingress:
+  api:
+    enabled: false
+    host: minio.local
+    tls: []
+  console:
+    enabled: false
+    host: console.minio.local
+    tls: []

@@ -11,50 +11,17 @@ tags: []
 parameters: {}
 schedule: null
 is_schedule_active: null
-infra_overrides: {}
+infra_overrides:
+  image: prefecthq/prefect:3.4.6-python3.12
+  image_pull_policy: Always
+  env:
+    EXTRA_PIP_PACKAGES: s3fs requests pandas minio seaborn matplotlib boto3 pandapower openpyxl
 
 ###
 ### DO NOT EDIT BELOW THIS LINE
 ###
 flow_name: uc1-load-sens
 manifest_path: null
-infrastructure:
-  type: kubernetes-job
-  env:
-    EXTRA_PIP_PACKAGES: s3fs requests pandas minio seaborn matplotlib boto3 pandapower
-      openpyxl
-  labels: {}
-  name: null
-  command: null
-  image: prefecthq/prefect:2.13.2-python3.10
-  namespace: default
-  service_account_name: null
-  image_pull_policy: Always
-  cluster_config: null
-  job:
-    apiVersion: batch/v1
-    kind: Job
-    metadata:
-      labels: {}
-    spec:
-      template:
-        spec:
-          parallelism: 1
-          completions: 1
-          restartPolicy: Never
-          containers:
-          - name: prefect-job
-            env: []
-  customizations: []
-  job_watch_timeout_seconds: null
-  pod_watch_timeout_seconds: 60
-  stream_output: true
-  finished_job_ttl: null
-  _block_document_id: 35058851-7b13-4610-be66-ee374f498637
-  _block_document_name: prod
-  _is_anonymous: false
-  block_type_slug: kubernetes-job
-  _block_type_slug: kubernetes-job
 storage:
   basepath: s3://prefect/param
   settings:
