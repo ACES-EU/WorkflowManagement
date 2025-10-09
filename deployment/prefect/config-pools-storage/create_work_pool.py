@@ -2,6 +2,7 @@ import asyncio
 import os
 from prefect.client.orchestration import get_client
 from prefect.client.schemas.actions import WorkPoolCreate, WorkPoolUpdate
+from prefect.workers.utilities import get_default_base_job_template_for_infrastructure_type
 
 # Configure Prefect API URL from environment or use default
 PREFECT_API_URL = os.getenv("PREFECT_API_URL", "http://localhost:4200/api")
@@ -26,13 +27,14 @@ async def create_or_update_work_pool():
     and modify only required variables (no local JSON file).
     """
     print(f"Using Prefect API URL: {PREFECT_API_URL}")
+    
+    # Get default base job template for kubernetes using the utility function
+    base_job_template = await get_default_base_job_template_for_infrastructure_type("kubernetes")
+    
+    if not base_job_template:
+        raise ValueError("Could not retrieve default base job template for kubernetes")
+    
     async with get_client() as client:
-        # Fetch default base job template for kubernetes
-        resp = await client._client.get(
-            "/work_pools/default-base-job-template", params={"type": "kubernetes"}
-        )
-        resp.raise_for_status()
-        base_job_template = resp.json()
 
         # Apply minimal defaults to variables
         props = base_job_template.get("variables", {}).get("properties", {})
