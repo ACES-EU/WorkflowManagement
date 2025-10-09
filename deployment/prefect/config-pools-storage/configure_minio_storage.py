@@ -93,7 +93,7 @@ def create_storage_blocks():
     print("Creating flow storage block...")
     flow_storage = S3Bucket(
         bucket_name=MINIO_PREFECT_BUCKET,
-        folder="flows",
+        bucket_folder="flows",
         credentials=credentials_cloud,
     )
     flow_storage.save("saas-flows", overwrite=True)
@@ -103,7 +103,7 @@ def create_storage_blocks():
     print("Creating data storage block...")
     data_storage = S3Bucket(
         bucket_name=MINIO_PREFECT_BUCKET,
-        folder="data",
+        bucket_folder="data",
         credentials=credentials_cloud,
     )
     data_storage.save("saas-data", overwrite=True)
@@ -113,7 +113,7 @@ def create_storage_blocks():
     print("Creating results storage block...")
     results_storage = S3Bucket(
         bucket_name=MINIO_PREFECT_BUCKET,
-        folder="results",
+        bucket_folder="results",
         credentials=credentials_cloud,
     )
     results_storage.save("saas-results", overwrite=True)
@@ -123,7 +123,7 @@ def create_storage_blocks():
     print("Creating cache storage block...")
     cache_storage = S3Bucket(
         bucket_name=MINIO_PREFECT_BUCKET,
-        folder="cache",
+        bucket_folder="cache",
         credentials=credentials_edge,
     )
     cache_storage.save("edge-cache", overwrite=True)
